@@ -5,6 +5,28 @@ JacobsLewisModel::JacobsLewisModel()
 	ro = 0;
 	lambda = NULL;
 	P = NULL;
+	nu = NULL;
+}
+
+JacobsLewisModel::JacobsLewisModel(int s, int L, char* alpha)
+{
+	this->s = s;
+	this->L = L;
+	this->alphabet = new char[L+1];
+	strcpy_s(this->alphabet, L, alpha);
+	this->alphabet[L] = '\0';
+	this->buffer = new int[L];
+
+	ro = .5;
+	lambda = new double[s];
+	P = new double[L];
+
+	for (int i = 0; i < s; i++)
+		lambda[i] = 1. / s;
+	for (int i = 0; i < L; i++)
+		P[i] = 1. / L;
+
+	nu = NULL;
 }
 
 JacobsLewisModel::JacobsLewisModel(char *fname)

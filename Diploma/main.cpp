@@ -5,6 +5,7 @@
 
 int main()
 {
+	/*
 	MarkovChainModel *co;
 	co = new ConditionalOrderModel("COinput.txt");
 
@@ -22,7 +23,16 @@ int main()
 	co->printModel(os);
 	os.close();
 
-	if (co != NULL) delete co;
+	if (co != NULL) delete co; */
+
+	Buffer b = Buffer(4, 10);
+	b.shiftBuffer(2);
+	b.shiftBuffer(1);
+
+	for (int i = 0; i < 10; i++)
+		cout << b.str[i];
+
+	cout << '\n' << b.getNumber() << endl;
 	_getch();
 }
 
