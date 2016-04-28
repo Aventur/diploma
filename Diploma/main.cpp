@@ -1,5 +1,6 @@
 #include "MCModel.h"
 #include "COModel.h"
+#include "JLModel.h"
 #include <fstream>
 #include <conio.h>
 
@@ -25,14 +26,38 @@ int main()
 
 	if (co != NULL) delete co; */
 
-	Buffer b = Buffer(4, 10);
-	b.shiftBuffer(2);
-	b.shiftBuffer(1);
+	/*
+	JacobsLewisModel *m = new JacobsLewisModel("JLinput.txt");
 
-	for (int i = 0; i < 10; i++)
-		cout << b.str[i];
+	ofstream f;
+	f.open("genJL.txt");
 
-	cout << '\n' << b.getNumber() << endl;
+	m->generateSequence(10000000, f);
+
+	f.close();
+
+	delete m;
+	*/
+
+	
+	fstream is;
+	is.open("genJL.txt", ios_base::in);
+
+	JacobsLewisModel *jl = new JacobsLewisModel(5, 4, "ACGT");
+
+	jl->estimateNu(is);
+
+	is.clear(0);
+	is.seekg(0, ios::beg);
+
+	jl->estimateP(is);
+
+	jl->printModel(cout);
+
+	_getch();
+
+	delete jl;
+	
 	_getch();
 }
 

@@ -1,4 +1,5 @@
 #include "bsv.h"
+#include "mcutils.h"
 #include <fstream>
 #include <sstream>
 #include <time.h>
@@ -38,6 +39,7 @@ public:
 	MarkovChainModel();
 	~MarkovChainModel();
 
+	virtual double likelihood() = 0;
 	virtual void setParam(int p1, int p2);
 	virtual void estimateModel(istream &is);	// пусть определены L, alphabet
 	virtual int nextInitialState() = 0;

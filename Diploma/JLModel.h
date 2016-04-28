@@ -17,7 +17,7 @@ class JacobsLewisModel : public MarkovChainModel
 	double *lambda;		// вектор вероятностей lambda
 	double *P;			// вектор вероятностей pi
 
-	int *nu;			// массив для хранения матрицы частот
+	unsigned int *nu;			// массив для хранения матрицы частот
 
 public:
 	JacobsLewisModel();
@@ -26,8 +26,10 @@ public:
 	JacobsLewisModel(char *fname);					// инициализировать модель параметрами из файла
 	~JacobsLewisModel();
 
+	void estimateNu(istream &is);
+	void estimateP(istream &is);
 
-
+	double likelihood();
 	int nextInitialState();
 	int nextState();
 	void printModel(ostream &os);
