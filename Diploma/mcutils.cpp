@@ -25,3 +25,10 @@ istringstream * get_string_stream(istream &is, const char * alphabet)
 
 	return sis;
 }
+
+istream * refresh_string_stream(istream *is)
+{
+	is->clear(0);
+	is->seekg(0, ios::beg);
+	return is;
+}

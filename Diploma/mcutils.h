@@ -6,7 +6,7 @@ using namespace std;
 #define MARKOVCHAINSUTILS
 
 istringstream *get_string_stream(istream &is, const char* alphabet);
-
+istream *refresh_string_stream(istream *is);
 
 
 

@@ -20,6 +20,17 @@ struct Buffer {
 
 	__int64 getNumber();
 	void shiftBuffer(int i);
+	int& operator[] (const int index);
+	void operator++(int);
+	friend ostream & operator<<(ostream & out, const Buffer & b)
+	{
+		for (int i = b.beg; true; i = (i + 1) % b.len)
+		{
+			out << b.str[i];
+			if (i == b.end) break;
+		}
+		return out;
+	}
 };
 
 class MarkovChainModel

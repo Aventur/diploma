@@ -135,3 +135,27 @@ void Buffer::shiftBuffer(int i)
 	end = beg;
 	beg = (beg + 1) % len;
 }
+
+int & Buffer::operator[](const int index)
+{
+	if (index >= len || index < 0) 
+		return str[end];
+	return str[(beg + index) % len];
+}
+
+void Buffer::operator++(int)
+{
+	int i = len-1;
+	while (i >= 0)
+	{
+		if ((*this)[i] < L - 1)
+		{
+			(*this)[i]++;
+			break;
+		}
+		(*this)[i] = 0;
+		i--;
+	}
+}
+
+

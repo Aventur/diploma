@@ -1,6 +1,7 @@
 #include "MCModel.h"
 #include "COModel.h"
 #include "JLModel.h"
+#include "mcutils.h"
 #include <fstream>
 #include <conio.h>
 
@@ -44,13 +45,10 @@ int main()
 	is.open("genJL.txt", ios_base::in);
 
 	JacobsLewisModel *jl = new JacobsLewisModel(5, 4, "ACGT");
+	istringstream *sis = get_string_stream(is, "ACGT");
+	is.close();
 
-	jl->estimateNu(is);
-
-	is.clear(0);
-	is.seekg(0, ios::beg);
-
-	jl->estimateP(is);
+	jl->estimateInitialParameters(sis);
 
 	jl->printModel(cout);
 
