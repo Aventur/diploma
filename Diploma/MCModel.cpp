@@ -50,11 +50,19 @@ int MarkovChainModel::number(char *t)
 	return r;
 }
 
-void MarkovChainModel::setParam(int p1, int p2)
-{}
+double MarkovChainModel::AIC(istream * is)
+{
+	return -2. * likelihood(is) + 2 * numberOfParams();
+}
 
-void MarkovChainModel::estimateModel(istream &is)
-{}
+double MarkovChainModel::BIC(istream * is)
+{
+	is->seekg(0, ios::end);
+	int len = is->tellg();
+	refresh_string_stream(is);
+
+	return -2. * likelihood(is) + numberOfParams() * log(len);
+}
 
 void MarkovChainModel::printArray(double *arr, int n, ostream &os)
 {

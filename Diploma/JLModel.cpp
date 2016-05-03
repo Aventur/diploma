@@ -57,6 +57,7 @@ void JacobsLewisModel::printModel(ostream &os)
 	printArray(P, L, os);
 	printArray(lambda, s, os);
 	os << ro;
+	os << endl;
 }
 
 JacobsLewisModel::~JacobsLewisModel()
@@ -98,7 +99,7 @@ double * JacobsLewisModel::estimateQ(double *Q)
 		if (i % L == L - 1)
 		{
 			for (j = 0; j < L; j++)
-				Q[i - j] = nu[i - j] / sum;
+				Q[i - j] = sum?(nu[i - j] / sum): 1./L;
 			sum = 0;
 		}
 	}
@@ -127,6 +128,7 @@ double * JacobsLewisModel::estimateInitialLambda(double * Q)
 {
 	Buffer b(L, s);
 	double *C = new double[s];
+	ZeroMemory(C, sizeof(double) * s);
 
 	double c = 0;					// вычисление C
 	for (int i = 0; i < L; i++)
@@ -136,21 +138,260 @@ double * JacobsLewisModel::estimateInitialLambda(double * Q)
 	do
 	{
 		for (int j = 0; j < s; j++)
-			C[j] -= P[b[j]] - Q[L*b.getNumber() + j];
+			C[j] += P[b[j]] - Q[L*b.getNumber() + b[j]];
 		b++;
 	} while (b.getNumber());
 	for (int i = 0; i < s; i++)
-		C[i] = c + 2 * ro * C[i];
+		C[i] = c - 2 * ro * C[i];
 
+	double prod;
 	for (int i = 0; i < s; i++)		// вычисление lambda
 	{
-		double prod = 0;
+		prod = 0;
 		for (int j = 0; j < s; j++)
-			prod += (s * (i == j) - 1) * C[j];
-		lambda[i] = prod / (2 * s * (L - 1) * pow(L, s - 1) * ro * ro) - 1. / s;
+			prod += (s * ((s-i-1) == j) - 1) * C[j];
+		lambda[i] = prod / (2 * s * (L - 1) * pow(L, s - 1) * ro * ro) + 1. / s;
 	}
 
+	project_to_simplex(lambda, s);
 	return lambda;
+}
+
+double JacobsLewisModel::get_buffer_likelihood(Buffer b)
+{
+	int h = b[s];
+	double res = 0;
+	for (int j = 0; j < s; j++)
+		if (h == b[j])
+			res += lambda[s - j - 1];
+
+	return ((1. - ro) * P[h] + ro * res);
+}
+
+void JacobsLewisModel::P_derivatives(double * d_P)
+{
+	int i;
+	ZeroMemory(d_P, sizeof(double) * L);
+
+	Buffer b(L, s + 1);
+	for (i = 0; i < pow(L, s + 1); i++)
+	{
+		if (nu[i])
+			d_P[b[s]] += nu[i] / get_buffer_likelihood(b);
+		b++;
+	}
+
+	for (i = 0; i < L; i++)
+		d_P[i] *= (1. - ro);
+}
+
+void JacobsLewisModel::Lambda_derivatives(double * d_lambda)
+{	// with use of nu
+	int i, k, h;
+	ZeroMemory(d_lambda, sizeof(double) * s);
+
+	Buffer b(L, s + 1);
+	double blh = 0;
+	for (i = 0; i < pow(L, s + 1); i++)
+	{
+		if (nu[i])
+		{
+			blh = 0;
+			h = b[s];
+			for (k = 0; k < s; k++)
+				if (h == b[k])
+				{
+					if (!blh) blh = get_buffer_likelihood(b);
+					d_lambda[s - k - 1] += nu[i] / blh;
+				}
+		}
+		b++;
+	}
+
+	for (i = 0; i < s; i++)
+		d_lambda[i] *= ro;
+}
+
+double JacobsLewisModel::Ro_derivative()
+{
+	int i, j, h;
+	double d_ro = 0;
+
+	Buffer b(L, s + 1);
+	double sum = 0;
+	for (i = 0; i < pow(L, s + 1); i++)
+	{
+		if (nu[i])
+		{
+			h = b[s];
+			sum = 0;
+			for (j = 0; j < s; j++)
+				if (h == b[j])
+					sum += lambda[s - j - 1];
+
+			d_ro += nu[i] * (sum - P[h]) / ((1. - ro) * P[h] + ro * sum);
+		}
+		b++;
+	}
+
+	return d_ro;
+}
+
+void JacobsLewisModel::all_derivatives(double * d_P, double * d_lambda, double & d_ro)
+{
+	int i, j, h;
+	ZeroMemory(d_P, sizeof(double) * L);
+	ZeroMemory(d_lambda, sizeof(double) * s);
+	d_ro = 0;
+
+	Buffer b(L, s + 1);
+	double sum, blh;
+	for (i = 0; i < pow(L, s + 1); i++)
+	{
+		if (nu[i])
+		{
+			h = b[s];
+			sum = 0;
+			for (j = 0; j < s; j++)
+				if (h == b[j])
+					sum += lambda[s - j - 1];
+			blh = ((1. - ro) * P[h] + ro * sum);
+
+			for (j = 0; j < s; j++)
+				if (h == b[j])
+					d_lambda[s - j - 1] += nu[i] / blh;
+			d_P[h] += nu[i] / blh;
+			d_ro += nu[i] * (sum - P[h]) / blh;
+		}
+		b++;
+	}
+	for (i = 0; i < L; i++)
+		d_P[i] *= (1. - ro);
+	for (i = 0; i < s; i++)
+		d_lambda[i] *= ro;
+}
+
+void JacobsLewisModel::P_derivatives(double * d_P, istream * is, int s_pos, int e_pos)
+{
+	int i, c;
+	ZeroMemory(d_P, sizeof(double) * L);
+
+	Buffer b(L, s + 1);
+	is->seekg(s_pos, ios::beg);
+	for (i = 0; i < s; i++)			// а надо ли?
+	{
+		c = indexof(is->get());
+		d_P[c] += 1.;
+		b.shiftBuffer(c);
+	}
+
+	for (i = s_pos + s; i < e_pos; i++)
+	{
+		c = indexof(is->get());
+		b.shiftBuffer(c);
+		d_P[c] += 1. / get_buffer_likelihood(b);
+	}
+
+	for (i = 0; i < L; i++)
+		d_P[i] *= (1. - ro);
+	refresh_string_stream(is);
+}
+
+void JacobsLewisModel::Lambda_derivatives(double * d_lambda, istream * is, int s_pos, int e_pos)
+{
+	int i, c, k;
+	ZeroMemory(d_lambda, sizeof(double) * s);
+
+	Buffer b(L, s + 1);
+	is->seekg(s_pos, ios::beg);
+	for (i = 0; i < s; i++)	
+		b.shiftBuffer(indexof(is->get()));
+
+	double blh;
+	for (i = s_pos + s; i < e_pos; i++)
+	{
+		b.shiftBuffer(indexof(is->get()));
+
+		blh = 0;
+		c = b[s];
+		for (k = 0; k < s; k++)
+			if (c == b[k])
+			{
+				if (!blh) blh = get_buffer_likelihood(b);
+				d_lambda[s - k - 1] += 1. / blh;
+			}
+	}
+
+	for (i = 0; i < s; i++)
+		d_lambda[i] *= ro;
+	refresh_string_stream(is);
+}
+
+double JacobsLewisModel::Ro_derivative(istream * is, int s_pos, int e_pos)
+{
+	int i, j, h;
+	double d_ro = 0;
+
+	Buffer b(L, s + 1);
+	is->seekg(s_pos, ios::beg);
+	for (i = 0; i < s; i++)
+		b.shiftBuffer(indexof(is->get()));
+
+	double sum = 0;
+	for (i = s_pos + s; i < e_pos; i++)
+	{
+		h = indexof(is->get());
+		b.shiftBuffer(h);
+		sum = 0;
+		for (j = 0; j < s; j++)
+			if (h == b[j])
+				sum += lambda[s - j - 1];
+
+		d_ro += (sum - P[h]) / ((1. - ro) * P[h] + ro * sum);
+	}
+
+	refresh_string_stream(is);
+	return d_ro;
+}
+
+void JacobsLewisModel::all_derivatives(double * d_P, double * d_lambda, double & d_ro, istream * is, int s_pos, int e_pos)
+{
+	int i, j, h;
+	ZeroMemory(d_P, sizeof(double) * L);
+	ZeroMemory(d_lambda, sizeof(double) * s);
+	d_ro = 0;
+
+	Buffer b(L, s + 1);
+	is->seekg(s_pos, ios::beg);
+	for (i = 0; i < s; i++)	
+	{
+		h = indexof(is->get());
+		d_P[h] += 1.;
+		b.shiftBuffer(h);
+	}
+
+	double sum, blh;
+	for (i = s_pos + s; i < e_pos; i++)
+	{
+		h = indexof(is->get());
+		b.shiftBuffer(h);
+		sum = 0;
+		for (j = 0; j < s; j++)
+			if (h == b[j])
+				sum += lambda[s - j - 1];
+		blh = ((1. - ro) * P[h] + ro * sum);
+
+		for (j = 0; j < s; j++)
+			if (h == b[j])
+				d_lambda[s - j - 1] += 1. / blh;
+		d_P[h] += 1. / blh;
+		d_ro += (sum - P[h]) / blh;
+	}
+	for (i = 0; i < L; i++)
+		d_P[i] *= (1. - ro);
+	for (i = 0; i < s; i++)
+		d_lambda[i] *= ro;
+	refresh_string_stream(is);
 }
 
 __int64 JacobsLewisModel::next1(Buffer & b, int i)
@@ -193,12 +434,13 @@ void JacobsLewisModel::estimateP(istream * is)
 	for (int i = 0; i < L; i++)
 		P[i] = double(frequencies[i]) / sum;
 
+	refresh_string_stream(is);
 	//if (frequencies != NULL) delete[]frequencies;
 }
 
 void JacobsLewisModel::estimateInitialParameters(istream * is)
 {
-	if (nu == NULL) estimateNu(is);
+	estimateNu(is);
 	refresh_string_stream(is);
 
 	// вычислим оценку матрицы Q
@@ -206,23 +448,9 @@ void JacobsLewisModel::estimateInitialParameters(istream * is)
 	estimateQ(Q);
 
 	estimateP(is);				// оценка начального значения P
-	refresh_string_stream(is);
 
 	estimateInitialRo(Q);		// оценка начального значения Ro
 	estimateInitialLambda(Q);	// оценка начального значения Lambda
-
-	/*
-	next2(b, 1);
-	b[-1] = 0;
-	for (int i = 0; i < pow(L-1, s) * 4; i++)
-	{
-		next1(b, 0);
-		cout << i << ' ' << b.getNumber() << " ";
-		for (int j = 0; j < b.len; j++)
-			cout << b[j];
-		cout << '\n';
-	}*/
-
 
 	if (Q != NULL) delete[]Q;
 }
@@ -243,7 +471,41 @@ int JacobsLewisModel::nextState()
 	return res;
 }
 
-double JacobsLewisModel::likelihood()
-{// TODO!!!
-	return 0;
+double JacobsLewisModel::likelihood(istream *is)
+{
+	double lh = 0;
+	int cur;
+	Buffer b(L, s);
+
+	for (int i = 0; i < s; i++)
+	{
+		cur = indexof(is->get());
+		b.shiftBuffer(cur);
+		lh += log(P[cur]);
+	}
+
+	double sum;
+	int i;
+	for (char c = is->get(); !is->eof(); c = is->get())
+	{
+		cur = indexof(c);
+		if (cur == -1)
+			continue;
+
+		sum = 0;
+		for (i = 0; i < s; i++)
+			if (cur == b[i])
+				sum += lambda[s - i - 1];
+		lh += log((1 - ro) * P[cur] + ro * sum);
+
+		b.shiftBuffer(cur);
+	}
+
+	refresh_string_stream(is);
+	return lh;
+}
+
+__int64 JacobsLewisModel::numberOfParams()
+{
+	return (L + s - 1);
 }

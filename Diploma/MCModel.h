@@ -50,16 +50,22 @@ public:
 	MarkovChainModel();
 	~MarkovChainModel();
 
-	virtual double likelihood() = 0;
-	virtual void setParam(int p1, int p2);
-	virtual void estimateModel(istream &is);	// пусть определены L, alphabet
+	virtual double likelihood(istream *is) = 0;		// LogLikelihood function
+	virtual __int64 numberOfParams() = 0;
+	double AIC(istream *is);
+	double BIC(istream *is);
+
+	virtual void setParam(int p1, int p2) {};
+	virtual void estimateModel(istream *is) {};	// пусть определены L, alphabet
+	
 	virtual int nextInitialState() = 0;
 	virtual int nextState() = 0;
-	virtual void printModel(ostream &os, short full = 0);
 	void generateSequence(int n, ostream &os);
+	int nextDiscreteRand(double *dist, int n);
+
+	virtual void printModel(ostream &os, short full = 0);
 	static void printArray(double *arr, int n, ostream &os);
 	static void printArray(int *arr, int n, ostream &os);
-	int nextDiscreteRand(double *dist, int n);
 };
 
 #endif
