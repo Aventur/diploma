@@ -12,12 +12,13 @@ istringstream * get_string_stream(istream &is, const char * alphabet)
 	for (int i = 0; i < g; i++)
 		if (strchr(alphabet, file[i]) != NULL)
 			new_g++;
-	char *new_file = new char[new_g];			// новая строка, для допустимых символов
+	char *new_file = new char[new_g + 1];		// новая строка, для допустимых символов
 
 	new_g = 0;
 	for (int i = 0; i < g; i++)					// перенос допустимых символов
 		if (strchr(alphabet, file[i]) != NULL)
 			new_file[new_g++] = file[i];
+	new_file[new_g] = '\0';
 
 	istringstream *sis = new istringstream(new_file);
 	delete[]file;
@@ -46,7 +47,6 @@ void project_to_simplex(double *vector, int size)
 	{
 		for (j = i; j >= 1 && vector[j-1] > vector[j]; j--)
 		{
-			cout << j;
 			t1 = order[j-1]; order[j-1] = order[j]; order[j] = t1;
 			sum = vector[j-1]; vector[j-1] = vector[j]; vector[j] = sum;
 		}

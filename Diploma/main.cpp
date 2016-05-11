@@ -1,6 +1,7 @@
 #include "MCModel.h"
 #include "COModel.h"
 #include "JLModel.h"
+#include "MTDModel.h"
 #include "mcutils.h"
 #include <fstream>
 #include <conio.h>
@@ -219,10 +220,9 @@ int main()
 	if (k != NULL) delete[]k;
 	os.close();*/
 
+	/*
 	int L = 4;
 	int s = 5;
-	
-	JacobsLewisModel *jl = new JacobsLewisModel(s, L, "ACGT");
 
 	ofstream os;
 	double *k;
@@ -242,8 +242,42 @@ int main()
 	if (k != NULL) delete[]k;
 	os.close();
 
-	if (jl != NULL) delete jl;
-	cout << "STOP!!!!!" << endl;
+	cout << "STOP!!!!!" << endl;*/
+
+	/* reading from file, end position
+	ifstream is("MTDgen.txt");
+	istringstream *sis = get_string_stream(is, "ACGT");
+	is.close();
+
+
+	sis->seekg(0, ios::end);
+	int T = sis->tellg();
+	cout << T << endl;
+	_getch();
+	sis->seekg(0, ios::beg);
+
+	for (int i = 0; i <= T; i++)
+		cout << sis->get() << endl;/**/
+
+
+	MTDModel mtd_gen("MTD_input.txt");
+
+	ofstream os("MTDgen.txt");
+	mtd_gen.generateSequence(30000, os);
+	os.close();
+
+	MTDModel mtd_est(5, 4, "ACGT");
+	ifstream is("MTDgen.txt");
+
+	istringstream *sis = get_string_stream(is, "ACGT");
+	is.close();
+
+	cout << mtd_est.likelihood(sis, 0, 30000) << endl;
+	mtd_est.estimateInitialParameters(sis, 0, 30000);
+	mtd_est.printModel(cout);
+	cout << mtd_est.likelihood(sis, 0, 30000) << endl;
+
+	if (sis != NULL) delete sis;/**/
 	_getch();
 }
 
