@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+#include <iostream>
 using namespace std;
 
 #ifndef MARKOVCHAINSUTILS

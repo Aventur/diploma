@@ -72,10 +72,9 @@ JacobsLewisModel::~JacobsLewisModel()
 
 void JacobsLewisModel::estimateNu(istream * is)
 {
-	if (nu != NULL) delete[] nu;				// заполнение матрицы частот нулями
-	nu = new unsigned int[pow(L, s + 1)];
-	ZeroMemory(nu, sizeof(int) * pow(L, s + 1));
-
+	if (nu == NULL) nu = new unsigned int[pow(L, s + 1)];
+	ZeroMemory(nu, sizeof(unsigned int) * pow(L, s + 1));
+	
 	Buffer *b = new Buffer(L, s + 1);
 	for (int i = 0; i <= s + 1; i++)
 		b->shiftBuffer(indexof(is->get()));
@@ -157,7 +156,7 @@ double * JacobsLewisModel::estimateInitialLambda(double * Q)
 	return lambda;
 }
 
-double JacobsLewisModel::get_buffer_likelihood(Buffer b)
+double JacobsLewisModel::get_buffer_likelihood(Buffer &b)
 {
 	int h = b[s];
 	double res = 0;
@@ -394,6 +393,317 @@ void JacobsLewisModel::all_derivatives(double * d_P, double * d_lambda, double &
 	refresh_string_stream(is);
 }
 
+double JacobsLewisModel::vectorIteration(double * target, double * deriv, int size, 
+	double eps, double & step, double lh0)
+{
+	int imin, imax, i;
+	double lh, istep;
+
+	imin = 0; imax = 0;
+	for (i = 0; i < size; i++)
+	{
+		if (deriv[i] > deriv[imax])
+			imax = i;
+		if (deriv[i] < deriv[imin] && target[i] > 0)
+			imin = i;
+	}
+
+	if (target[imax] < 1 - eps)
+	{
+		istep = step;
+		step = min(target[imin], min(1 - target[imax], step));
+
+		while (step > eps)
+		{
+			target[imax] += step;
+			target[imin] -= step;
+			lh = this->likelihood();
+			if (lh > lh0)
+				break;
+			else
+			{
+				target[imax] -= step;
+				target[imin] += step;
+				step /= 2;
+			}
+		}
+
+		if (step == istep || step < eps)
+			step *= 2;
+		if (lh > lh0)
+			return lh;
+		else
+			return lh0;
+	}
+
+	return lh0;
+}
+
+double JacobsLewisModel::singleIteration(double & target, double deriv, 
+	double eps, double & step, double lh0)
+{
+	if (abs(deriv) < eps)
+		return lh0;
+	double lh, istep;
+	double direction = (deriv > 0) ? (1) : (-1);
+
+	istep = step;
+	step = min(step, (deriv > 0)?(1 - target):(target));
+
+	while (step > eps)
+	{
+		target += step * direction;
+		lh = this->likelihood();
+		if (lh > lh0)
+			break;
+		else
+		{
+			target -= step * direction;
+			step /= 2;
+		}
+	}
+
+	if (step == istep || step < eps)
+		step *= 2;
+	if (lh > lh0)
+		return lh;
+	else
+		return lh0;
+}
+
+void JacobsLewisModel::iterativeEstimation(istream * is, ostream &os, double eps)
+{
+	estimateInitialParameters(is);//estimateNu(is);
+	refresh_string_stream(is);
+	double lh0, lh, lstep, pstep, rstep;
+	int i = 0;
+
+	double *dP = new double[L];
+	double *dLambda = new double[s];
+	double dRo = 0;
+
+	lstep = 0.1; pstep = 0.1; rstep = 0.1;
+	lh0 = -DBL_MAX;
+	lh = likelihood(is);
+
+	while (lh > lh0)
+	{
+		os << endl << "Iteration " << ++i << ":\n";
+		cout << endl << "Iteration " << i << ":\n";
+		printModel(cout);
+
+		lh0 = lh;
+		P_derivatives(dP);
+
+		os << "P iteration:\n";
+		printModel(os);
+		printArray(dP, L, os);
+		os << fixed << lh0 << " " << pstep << endl << "--------" << endl;
+
+		lh = vectorIteration(P, dP, L, eps, pstep, lh0);
+
+		printModel(os);
+		os << fixed << lh << " " << pstep << endl << "--------" << endl;
+
+		Lambda_derivatives(dLambda);
+
+		os << "Lambda iteration:\n";
+		printArray(dLambda, s, os);
+		os << fixed << lh << " " << lstep << endl << "--------" << endl;
+
+		lh = vectorIteration(lambda, dLambda, s, eps, lstep, lh);
+
+		printModel(os);
+		os << fixed << lh << " " << lstep << endl << "--------" << endl;
+
+		dRo = Ro_derivative();
+
+		os << "Ro iteration:\n";
+		os << dRo << endl;
+		os << fixed << lh << " " << rstep << endl << "--------" << endl;
+
+		lh = singleIteration(ro, dRo, eps, rstep, lh);
+
+		printModel(os);
+		os << fixed << lh << " " << rstep << endl << "--------" << endl;
+	}
+
+	if (dP != NULL) delete[]dP;
+	if (dLambda != NULL) delete[]dLambda;
+}
+
+double JacobsLewisModel::vectorIteration(double * target, double * deriv, int size, double eps, double & step, double lh0, istream * is, int s_pos, int e_pos)
+{
+	int imin, imax, i;
+	double lh, istep;
+
+	imin = 0; imax = 0;
+	for (i = 0; i < size; i++)
+	{
+		if (deriv[i] > deriv[imax])
+			imax = i;
+		if (deriv[i] < deriv[imin] && target[i] > 0)
+			imin = i;
+	}
+
+	if (target[imax] < 1 - eps)
+	{
+		istep = step;
+		lh = lh0;
+		step = min(target[imin], min(1 - target[imax], step));
+
+		while (step > eps)
+		{
+			target[imax] += step;
+			target[imin] -= step;
+			lh = this->likelihood(is, s_pos, e_pos);
+			if (lh > lh0)
+				break;
+			else
+			{
+				target[imax] -= step;
+				target[imin] += step;
+				step /= 2;
+			}
+		}
+
+		if (step == istep || step < eps)
+			step *= 2;
+		if (lh > lh0)
+			return lh;
+		else
+			return lh0;
+	}
+
+	return lh0;
+}
+
+double JacobsLewisModel::singleIteration(double & target, double deriv, double eps, double & step, double lh0, istream * is, int s_pos, int e_pos)
+{
+	if (abs(deriv) < eps)
+		return lh0;
+	double lh, istep;
+	lh = lh0;
+	double direction = (deriv > 0) ? (1) : (-1);
+
+	istep = step;
+	step = min(step, (deriv > 0) ? (1 - target) : (target));
+
+	while (step > eps)
+	{
+		target += step * direction;
+		lh = this->likelihood(is, s_pos, e_pos);
+		if (lh > lh0)
+			break;
+		else
+		{
+			target -= step * direction;
+			step /= 2;
+		}
+	}
+
+	if (step == istep || step < eps)
+		step *= 2;
+	if (lh > lh0)
+		return lh;
+	else
+		return lh0;
+}
+
+double JacobsLewisModel::iterativeEstimation(istream * is, int s_pos, int e_pos, double eps, int max_iter)
+{
+	double lh0, lh, lstep, pstep, rstep;
+	int i = 0;
+
+	double *dP = new double[L];
+	double *dLambda = new double[s];
+	double dRo = 0;
+
+	lstep = 0.1; pstep = 0.1; rstep = 0.1;
+	lh0 = -DBL_MAX;
+	lh = likelihood(is);
+
+	while (lh > lh0 && i < max_iter)
+	{
+		i++;
+		lh0 = lh;
+
+		all_derivatives(dP, dLambda, dRo, is, s_pos, e_pos);
+		//P_derivatives(dP, is, s_pos, e_pos);
+		lh = vectorIteration(P, dP, L, eps, pstep, lh0, is, s_pos, e_pos);
+
+		//Lambda_derivatives(dLambda, is, s_pos, e_pos);
+		lh = vectorIteration(lambda, dLambda, s, eps, lstep, lh, is, s_pos, e_pos);
+
+		//dRo = Ro_derivative(is, s_pos, e_pos);
+		lh = singleIteration(ro, dRo, eps, rstep, lh, is, s_pos, e_pos);
+	}
+
+	if (dP != NULL) delete[]dP;
+	if (dLambda != NULL) delete[]dLambda;
+	return lh;
+}
+
+void JacobsLewisModel::iterativeEstimation(istream * is, int s_pos, int e_pos, ostream & os, double eps)
+{
+	double lh0, lh, lstep, pstep, rstep;
+	int i = 0;
+
+	double *dP = new double[L];
+	double *dLambda = new double[s];
+	double dRo = 0;
+
+	lstep = 0.1; pstep = 0.1; rstep = 0.1;
+	lh0 = -DBL_MAX;
+	lh = likelihood(is);
+
+	while (lh > lh0)
+	{
+		os << endl << "Iteration " << ++i << ":\n";
+		cout << endl << "Iteration " << i << ":\n";
+		printModel(cout);
+
+		lh0 = lh;
+		P_derivatives(dP, is,  s_pos, e_pos);
+		//all_derivatives(dP, dLambda, dRo, is, s_pos, e_pos);
+
+		os << "P iteration:\n";
+		printModel(os);
+		printArray(dP, L, os);
+		os << fixed << lh0 << " " << pstep << endl << "--------" << endl;
+
+		lh = vectorIteration(P, dP, L, eps, pstep, lh0, is, s_pos, e_pos);
+
+		printModel(os);
+		os << fixed << lh << " " << pstep << endl << "--------" << endl;
+
+		Lambda_derivatives(dLambda, is, s_pos, e_pos);
+
+		os << "Lambda iteration:\n";
+		printArray(dLambda, s, os);
+		os << fixed << lh << " " << lstep << endl << "--------" << endl;
+
+		lh = vectorIteration(lambda, dLambda, s, eps, lstep, lh, is, s_pos, e_pos);
+
+		printModel(os);
+		os << fixed << lh << " " << lstep << endl << "--------" << endl;
+
+		dRo = Ro_derivative(is, s_pos, e_pos);
+
+		os << "Ro iteration:\n";
+		os << dRo << endl;
+		os << fixed << lh << " " << rstep << endl << "--------" << endl;
+
+		lh = singleIteration(ro, dRo, eps, rstep, lh, is, s_pos, e_pos);
+
+		printModel(os);
+		os << fixed << lh << " " << rstep << endl << "--------" << endl;
+	}
+
+	if (dP != NULL) delete[]dP;
+	if (dLambda != NULL) delete[]dLambda;
+}
+
 __int64 JacobsLewisModel::next1(Buffer & b, int i)
 {
 	int j = b.len - 2;
@@ -448,6 +758,7 @@ void JacobsLewisModel::estimateInitialParameters(istream * is)
 	estimateQ(Q);
 
 	estimateP(is);				// оценка начального значения P
+	refresh_string_stream(is);
 
 	estimateInitialRo(Q);		// оценка начального значения Ro
 	estimateInitialLambda(Q);	// оценка начального значения Lambda
@@ -469,6 +780,22 @@ int JacobsLewisModel::nextState()
 		res = nextInitialState();
 	shiftBuffer(res);
 	return res;
+}
+
+double JacobsLewisModel::likelihood()
+{
+	double lh = 0;
+	Buffer b(L, s + 1);
+	int i;
+
+	for (i = 0; i < pow(L, s + 1); i++)
+	{
+		if (nu[i])
+			lh += nu[i] * log(get_buffer_likelihood(b));
+		b++;
+	}
+
+	return lh;
 }
 
 double JacobsLewisModel::likelihood(istream *is)
@@ -499,6 +826,43 @@ double JacobsLewisModel::likelihood(istream *is)
 		lh += log((1 - ro) * P[cur] + ro * sum);
 
 		b.shiftBuffer(cur);
+	}
+
+	refresh_string_stream(is);
+	return lh;
+}
+
+double JacobsLewisModel::likelihood(istream *is, int s_pos, int e_pos)
+{
+	double lh = 0;
+	int cur;
+	Buffer b(L, s);
+	is->seekg(s_pos, ios::beg);
+	int pos;
+
+	for (pos = s_pos; pos < s_pos + s; pos++)
+	{
+		cur = indexof(is->get());
+		b.shiftBuffer(cur);
+		lh += log(P[cur]);
+	}
+
+	double sum;
+	int i;
+	for (char c = is->get(); pos < e_pos; c = is->get())
+	{
+		cur = indexof(c);
+		if (cur == -1)
+			continue;
+
+		sum = 0;
+		for (i = 0; i < s; i++)
+			if (cur == b[i])
+				sum += lambda[s - i - 1];
+		lh += log((1 - ro) * P[cur] + ro * sum);
+
+		b.shiftBuffer(cur);
+		pos++;
 	}
 
 	refresh_string_stream(is);

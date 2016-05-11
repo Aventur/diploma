@@ -4,6 +4,7 @@
 #include "mcutils.h"
 #include <fstream>
 #include <conio.h>
+#include <time.h>
 
 
 double *JL_KOP_exp(char *filename, ostream &os, int s, int bulk_size, int step, int n_steps=100)
@@ -54,7 +55,50 @@ double *JL_KOP_exp(char *filename, ostream &os, int s, int bulk_size, int step, 
 	return KOP;
 }
 
+double *JL_KOP_exp_stream(char *filename, int s_pos, ostream &os, int s, 
+	int bulk_size, int step, int n_steps = 100, double eps = 0.001, int max_iter = 40)
+{
+	fstream is;
+	is.open(filename, ios_base::in);
 
+	istringstream *sis = get_string_stream(is, "ACGT");
+	is.close();
+
+	double l1, l2, l0;
+	JacobsLewisModel *jl1 = new JacobsLewisModel(s, 4, "ACGT");
+	JacobsLewisModel *jl2 = new JacobsLewisModel(s, 4, "ACGT");
+	JacobsLewisModel *jl0 = new JacobsLewisModel(s, 4, "ACGT");
+
+	double *KOP = new double[n_steps];
+	for (int i = s_pos; i < s_pos + n_steps * step; i += step)
+	{
+		cout << ((!((i - s_pos) % (step * 100))) ? ((i  - s_pos)/ step) : 0);//logging
+		os << "beg_pos " << i << ", bulk_size = " << bulk_size << endl;
+
+		l1 = jl1->iterativeEstimation(sis, i, i + bulk_size, eps, max_iter);
+		//jl->printModel(os);
+
+		l2 = jl2->iterativeEstimation(sis, i + bulk_size, i + 2 * bulk_size, eps, max_iter);
+		//jl->printModel(os);
+
+		l0 = jl0->iterativeEstimation(sis, i, i + 2 * bulk_size, eps, max_iter);
+		//jl->printModel(os);
+
+		KOP[(i - s_pos) / step] = 2. * (l1 + l2 - l0);
+		os << l1 << " " << l2 << " " << l0 << endl;
+		os << "KOP value" << " " << KOP[(i - s_pos) / step] << endl;
+		os << "*********************************************" << endl;
+	}
+	cout << "\n\n\n\n";
+
+	for (int i = 0; i < n_steps; i++)
+		os << KOP[i] << " ";
+	os << "\nr = " << s + 3 << endl;
+	if (jl1 != NULL) delete jl1;
+	if (jl2 != NULL) delete jl2;
+	if (jl0 != NULL) delete jl0;
+	return KOP;
+}
 
 void JL_analyze(char *filename, ostream &os, int MAX_S = 12)
 {
@@ -151,7 +195,7 @@ int main()
 
 	delete jl;*/
 	//JL_analyze("genJL.txt", cout);
-
+	/*
 	ofstream os;
 	double *k;
 	
@@ -173,8 +217,33 @@ int main()
 	os.open("KOP_clx10.txt");
 	k = JL_KOP_exp("callithrix.txt", os, 10, 10000, 3, 15000);
 	if (k != NULL) delete[]k;
+	os.close();*/
+
+	int L = 4;
+	int s = 5;
+	
+	JacobsLewisModel *jl = new JacobsLewisModel(s, L, "ACGT");
+
+	ofstream os;
+	double *k;
+	
+	os.open("KOP_clx5_110-140k_s30_w500.txt");
+	k = JL_KOP_exp_stream("callithrix.txt", 110000, os, s, 500, 30, 1000, 0.0005, 80);
+	if (k != NULL) delete[]k;
 	os.close();
 
-	//_getch();
+	os.open("KOP_clx5_435-465k_s30_w500.txt");
+	k = JL_KOP_exp_stream("callithrix.txt", 435000, os, s, 500, 30, 1000, 0.0005, 80);
+	if (k != NULL) delete[]k;
+	os.close();
+
+	os.open("KOP_clx5_1120-1150k_s30_w500.txt");
+	k = JL_KOP_exp_stream("callithrix.txt", 1120000, os, s, 500, 30, 1000, 0.0005, 80);
+	if (k != NULL) delete[]k;
+	os.close();
+
+	if (jl != NULL) delete jl;
+	cout << "STOP!!!!!" << endl;
+	_getch();
 }
 

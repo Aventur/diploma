@@ -45,6 +45,7 @@ protected:
 	void shiftBuffer(int state);
 	int indexof(char t);// функции для определения номера строки P, соотв.
 	int number(char* t);// заданной последовательности состояний
+	int number();		// номер текущего буфера
 
 public:
 	MarkovChainModel();

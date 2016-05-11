@@ -42,14 +42,13 @@ void project_to_simplex(double *vector, int size)
 
 	int t1;
 	double sum;					// сортируем вставками, запоминая порядок
-	for (int i = 1; i < size; i++)
+	for (i = 1; i < size; i++)
 	{
-		for (j = i - 1; vector[i] > vector[j] && j >= 0; j--);
-		if (j == -1) continue;
-		else
+		for (j = i; j >= 1 && vector[j-1] > vector[j]; j--)
 		{
-			t1 = order[i]; order[i] = order[j]; order[j] = t1;
-			sum = vector[i]; vector[i] = vector[j]; vector[j] = sum;
+			cout << j;
+			t1 = order[j-1]; order[j-1] = order[j]; order[j] = t1;
+			sum = vector[j-1]; vector[j-1] = vector[j]; vector[j] = sum;
 		}
 	}
 

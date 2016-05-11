@@ -50,6 +50,14 @@ int MarkovChainModel::number(char *t)
 	return r;
 }
 
+int MarkovChainModel::number()
+{
+	int r = 0;
+	int i = 0;
+	for (i = 0; i < s; r = r * L + buffer[i++]);
+	return r;
+}
+
 double MarkovChainModel::AIC(istream * is)
 {
 	return -2. * likelihood(is) + 2 * numberOfParams();
