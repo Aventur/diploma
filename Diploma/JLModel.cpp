@@ -621,21 +621,21 @@ double JacobsLewisModel::iterativeEstimation(istream * is, int s_pos, int e_pos,
 
 	lstep = 0.1; pstep = 0.1; rstep = 0.1;
 	lh0 = -DBL_MAX;
-	lh = likelihood(is);
+	lh = likelihood(is, s_pos, e_pos);
 
 	while (lh > lh0 && i < max_iter)
 	{
 		i++;
 		lh0 = lh;
 
-		all_derivatives(dP, dLambda, dRo, is, s_pos, e_pos);
-		//P_derivatives(dP, is, s_pos, e_pos);
+		//all_derivatives(dP, dLambda, dRo, is, s_pos, e_pos);
+		P_derivatives(dP, is, s_pos, e_pos);
 		lh = vectorIteration(P, dP, L, eps, pstep, lh0, is, s_pos, e_pos);
 
-		//Lambda_derivatives(dLambda, is, s_pos, e_pos);
+		Lambda_derivatives(dLambda, is, s_pos, e_pos);
 		lh = vectorIteration(lambda, dLambda, s, eps, lstep, lh, is, s_pos, e_pos);
 
-		//dRo = Ro_derivative(is, s_pos, e_pos);
+		dRo = Ro_derivative(is, s_pos, e_pos);
 		lh = singleIteration(ro, dRo, eps, rstep, lh, is, s_pos, e_pos);
 	}
 
@@ -764,6 +764,13 @@ void JacobsLewisModel::estimateInitialParameters(istream * is)
 	estimateInitialLambda(Q);	// оценка начального значения Lambda
 
 	if (Q != NULL) delete[]Q;
+}
+
+void JacobsLewisModel::setRandomInitialParameters()
+{
+	generateRandomDistribution(lambda, s);
+	generateRandomDistribution(P, L);
+	ro = bsv->next();
 }
 
 int JacobsLewisModel::nextInitialState()

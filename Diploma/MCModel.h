@@ -52,9 +52,10 @@ public:
 	~MarkovChainModel();
 
 	virtual double likelihood(istream *is) = 0;		// LogLikelihood function
+	virtual double likelihood(istream *is, int s_pos, int e_pos) { return 0.; };
 	virtual __int64 numberOfParams() = 0;
-	double AIC(istream *is);
-	double BIC(istream *is);
+	double AIC(istream *is, int s_pos, int e_pos);
+	double BIC(istream *is, int s_pos, int e_pos);
 
 	virtual void setParam(int p1, int p2) {};
 	virtual void estimateModel(istream *is) {};	// пусть определены L, alphabet
@@ -63,6 +64,7 @@ public:
 	virtual int nextState() = 0;
 	void generateSequence(int n, ostream &os);
 	int nextDiscreteRand(double *dist, int n);
+	void generateRandomDistribution(double *D, int size);
 
 	virtual void printModel(ostream &os, short full = 0);
 	static void printArray(double *arr, int n, ostream &os);

@@ -64,6 +64,7 @@ public:
 
 	void estimateP(istream *is);
 	void estimateInitialParameters(istream *is);	// !после оценки nu и P
+	void setRandomInitialParameters();				// инициализация параметров случайными значениями
 
 	/* для однократного применения*/
 	void iterativeEstimation(istream *is, ostream &os, double eps = 0.001);

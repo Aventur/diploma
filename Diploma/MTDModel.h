@@ -33,15 +33,18 @@ class MTDModel : public MarkovChainModel
 	double vectorIteration(double *target, double *deriv, int size,
 		double eps, double &step, double lh0, istream *is, int s_pos, int e_pos);
 
-	/*derivatives !!! по две функции для лямбда, всей Q(уточнить, 
-	зависит ли производная по одной строке от других - тогда для оьдельных строк нужно
-	- но вроде бы нет)
+	/*derivatives !!! по две функции для лямбда, строки Q 
 	(и всех сразу - пока не надо)*/
-	void lambda_derivatives(double *dLambda);
+	void lambda_derivatives(double *dLambda);	// по nu
 	void lambda_derivatives(double *dLambda, istream *is, int s_pos, int e_pos);
 
-	void Q_derivatives(double **dQ);
-	void Q_derivatives(double **dQ, istream *is, int s_pos, int e_pos);
+	/* производные строки матрицы Q с номером l*/
+	void Q_derivatives(double *dQl, int l);		// по nu
+	void Q_derivatives(double *dQl, int l, istream *is, int s_pos, int e_pos);
+
+	/* с оценкой nu */
+	double iterativeEstimation(ostream &os, double eps = 0.001, int max_iter = 100,
+		double start_step = 0.1, bool report = 0);
 
 public:
 	MTDModel();
@@ -50,15 +53,17 @@ public:
 	~MTDModel();
 
 	void estimateNu(istream *is);
+	void estimateNu(istream *is, int s_pos, int e_pos);
 
 	void estimateInitialParameters(istream *is);
 	void estimateInitialParameters(istream *is, int s_pos, int e_pos);
 
 	/* с оценкой nu */
-	double iterativeEstimation(ostream &os, double eps = 0.001, int max_iter = 100);
+	double iterativeEstimation_Nu(istream *is, int s_pos, int e_pos, ostream &os,
+		double eps = 0.001, int max_iter = 100,	double start_step = 0.1, bool report = 0);
 	/* без оценки nu */
 	double iterativeEstimation(istream *is, int s_pos, int e_pos, ostream &os,
-		double eps = 0.001, int max_iter = 100);
+		double eps = 0.001, int max_iter = 100, double start_step = 0.1, bool report = 0);
 
 	double likelihood();
 	double likelihood(istream *is);

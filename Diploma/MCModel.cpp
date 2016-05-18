@@ -58,18 +58,15 @@ int MarkovChainModel::number()
 	return r;
 }
 
-double MarkovChainModel::AIC(istream * is)
+double MarkovChainModel::AIC(istream * is, int s_pos, int e_pos)
 {
-	return -2. * likelihood(is) + 2 * numberOfParams();
+	return -2. * likelihood(is, s_pos, e_pos) + 2. * (double)numberOfParams();
 }
 
-double MarkovChainModel::BIC(istream * is)
+double MarkovChainModel::BIC(istream * is, int s_pos, int e_pos)
 {
-	is->seekg(0, ios::end);
-	int len = is->tellg();
-	refresh_string_stream(is);
-
-	return -2. * likelihood(is) + numberOfParams() * log(len);
+	int len = e_pos - s_pos;
+	return -2. * likelihood(is, s_pos, e_pos) + numberOfParams() * log(len);
 }
 
 void MarkovChainModel::printArray(double *arr, int n, ostream &os)
@@ -106,6 +103,18 @@ int MarkovChainModel::nextDiscreteRand(double *dist, int n)
 	return res;
 }
 
+void MarkovChainModel::generateRandomDistribution(double * D, int size)
+{
+	int i;
+	for (i = 0; i < size - 1; i++)
+		D[i] = bsv->next();
+	D[size - 1] = 1.;
+
+	qsort(D, size, sizeof(double), cmp<double>);
+	for (i = size - 1; i > 0; i--)
+		D[i] -= D[i - 1];
+}
+
 void MarkovChainModel::generateSequence(int n, ostream &os)
 {
 	for (int i = 0; i < s; i++)
@@ -113,7 +122,7 @@ void MarkovChainModel::generateSequence(int n, ostream &os)
 		buffer[i] = nextInitialState();
 		os << alphabet[buffer[i]];
 	}
-	for (int i = 0; i < n; i++)
+	for (int i = 0; i < n - s; i++)
 		os << alphabet[nextState()];
 }
 

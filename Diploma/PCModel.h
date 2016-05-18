@@ -34,6 +34,8 @@ public:
 	int nextInitialState();
 	int nextState();
 	void printModel(ostream &os, short full);
+	__int64 numberOfParams() { return pow(L, r + 1); }
+	double likelihood(istream *is) { return 0.; }
 };
 
 #endif
